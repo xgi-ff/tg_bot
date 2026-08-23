@@ -1,11 +1,12 @@
 import os
 import requests
 import json
+import asyncio
+import traceback
 from flask import Flask, request, jsonify
 import telegram
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
-import asyncio
 
 app = Flask(__name__)
 
@@ -92,6 +93,7 @@ def webhook():
         return '', 200
     except Exception as e:
         print(f"Webhook error: {e}")
+        traceback.print_exc()
         return str(e), 500
 
 @app.route('/setwebhook', methods=['GET'])
@@ -106,6 +108,8 @@ def set_webhook():
         result = asyncio.run(bot.set_webhook(webhook_url))
         return jsonify({"success": True, "webhook_url": webhook_url, "result": result.to_dict()})
     except Exception as e:
+        print(f"Setwebhook error: {e}")
+        traceback.print_exc()
         return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route('/', methods=['GET'])
