@@ -1,12 +1,11 @@
 import os
 import requests
 import json
-import asyncio
-import traceback
 from flask import Flask, request, jsonify
 import telegram
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
+import asyncio
 
 app = Flask(__name__)
 
@@ -22,7 +21,7 @@ application = Application.builder().token(BOT_TOKEN).build()
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "👋 Hello! I can fetch Free Fire player info.\n"
+        "👋 Hello! Welcome to XGI player info bot. I can fetch Free Fire player info.\n"
         "Commands:\n"
         "/info <uid> – show player profile\n"
         "/wishlist <uid> – show wishlist items"
@@ -83,7 +82,7 @@ application.add_handler(CommandHandler("info", info))
 application.add_handler(CommandHandler("wishlist", wishlist))
 
 
-# ---------- WEBHOOK ----------
+# ---------- WEBHOOK (async processed via asyncio.run) ----------
 @app.route('/webhook', methods=['POST'])
 def webhook():
     try:
@@ -93,24 +92,30 @@ def webhook():
         return '', 200
     except Exception as e:
         print(f"Webhook error: {e}")
-        traceback.print_exc()
         return str(e), 500
 
+
+# ---------- SET WEBHOOK (purely synchronous, no async) ----------
 @app.route('/setwebhook', methods=['GET'])
 def set_webhook():
     if not BOT_TOKEN:
         return "Bot token missing", 500
+
     host = request.headers.get('X-Forwarded-Host', request.host)
     scheme = request.headers.get('X-Forwarded-Proto', 'https')
     webhook_url = f"{scheme}://{host}/webhook"
+
+    # Direct Telegram API call (sync)
+    api_url = f"https://api.telegram.org/bot{BOT_TOKEN}/setWebhook"
     try:
-        bot = telegram.Bot(token=BOT_TOKEN)
-        result = asyncio.run(bot.set_webhook(webhook_url))
-        return jsonify({"success": True, "webhook_url": webhook_url, "result": result.to_dict()})
+        resp = requests.post(api_url, json={"url": webhook_url}, timeout=10)
+        resp.raise_for_status()
+        result = resp.json()
+        return jsonify({"success": True, "webhook_url": webhook_url, "result": result})
     except Exception as e:
         print(f"Setwebhook error: {e}")
-        traceback.print_exc()
         return jsonify({"success": False, "error": str(e)}), 500
+
 
 @app.route('/', methods=['GET'])
 def home():
