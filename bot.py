@@ -14,15 +14,14 @@ BOT_TOKEN = os.environ.get("BOT_TOKEN")
 if not BOT_TOKEN:
     raise RuntimeError("BOT_TOKEN environment variable not set")
 
-# Your API URL (the other project)
-API_BASE_URL = os.environ.get("API_BASE_URL", "https://your-api-project.vercel.app")
+API_BASE_URL = os.environ.get("API_BASE_URL", "https://xgi-api.onrender.com")
 
 # ---------- BOT HANDLERS ----------
 application = Application.builder().token(BOT_TOKEN).build()
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "👋 Hello! Welcome to XGI player info bot. I can fetch Free Fire player info.\n"
+        "👋 Hello! I can fetch Free Fire player info.\n"
         "Commands:\n"
         "/info <uid> – show player profile\n"
         "/wishlist <uid> – show wishlist items"
@@ -83,38 +82,35 @@ application.add_handler(CommandHandler("info", info))
 application.add_handler(CommandHandler("wishlist", wishlist))
 
 
-# ---------- WEBHOOK ENDPOINT ----------
+# ---------- WEBHOOK ----------
 @app.route('/webhook', methods=['POST'])
-async def webhook():
+def webhook():
     try:
         json_data = request.get_json(force=True)
         update = Update.de_json(json_data, application.bot)
-        await application.process_update(update)
+        asyncio.run(application.process_update(update))
         return '', 200
     except Exception as e:
         print(f"Webhook error: {e}")
         return str(e), 500
 
-
-# ---------- SET WEBHOOK ENDPOINT ----------
 @app.route('/setwebhook', methods=['GET'])
 def set_webhook():
+    if not BOT_TOKEN:
+        return "Bot token missing", 500
     host = request.headers.get('X-Forwarded-Host', request.host)
     scheme = request.headers.get('X-Forwarded-Proto', 'https')
     webhook_url = f"{scheme}://{host}/webhook"
     try:
         bot = telegram.Bot(token=BOT_TOKEN)
-        result = bot.set_webhook(webhook_url)
+        result = asyncio.run(bot.set_webhook(webhook_url))
         return jsonify({"success": True, "webhook_url": webhook_url, "result": result.to_dict()})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
-
-# ---------- HEALTH CHECK ----------
 @app.route('/', methods=['GET'])
 def home():
-    return "🤖 Bot is running!"
-
+    return "🤖 Telegram Bot is running!"
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5050)
